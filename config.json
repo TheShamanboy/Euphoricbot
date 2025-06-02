@@ -1,0 +1,19 @@
+{
+    "token":"MTM3ODQzOTcwNTQxNDA3NDQ1OA.Gkg7Aa.tOcarcp1MtZGKCgArysWSm56xJMXfldVpjPvHY",
+    "guildId":"1373918709759873177",
+    "dailyReward": 100,
+    "spinCosts": {
+        "x1": 50,
+        "x2": 90,
+        "x3": 120
+    },
+    "gameRewards": {
+        "blackjack": {
+            "win": 50,
+            "blackjack": 75
+        },
+        "roulette": {
+            "multiplier": 2
+        }
+    }
+}

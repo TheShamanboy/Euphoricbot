@@ -1,0 +1,80 @@
+{
+  "categories": {
+    "colors": {
+      "name": "Colors",
+      "rarity": "common",
+      "weight": 70,
+      "roles": [
+        {
+          "id": "red_role",
+          "name": "Red",
+          "roleId": "ROLE_ID_RED"
+        },
+        {
+          "id": "blue_role",
+          "name": "Blue",
+          "roleId": "ROLE_ID_BLUE"
+        },
+        {
+          "id": "green_role",
+          "name": "Green",
+          "roleId": "ROLE_ID_GREEN"
+        },
+        {
+          "id": "purple_role",
+          "name": "Purple",
+          "roleId": "ROLE_ID_PURPLE"
+        },
+        {
+          "id": "yellow_role",
+          "name": "Yellow",
+          "roleId": "ROLE_ID_YELLOW"
+        }
+      ]
+    },
+    "badges": {
+      "name": "Badges",
+      "rarity": "rare",
+      "weight": 0.25,
+      "roles": [
+        {
+          "id": "vip_badge",
+          "name": "VIP Badge",
+          "roleId": "ROLE_ID_VIP"
+        },
+        {
+          "id": "legend_badge",
+          "name": "Legend Badge",
+          "roleId": "ROLE_ID_LEGEND"
+        },
+        {
+          "id": "champion_badge",
+          "name": "Champion Badge",
+          "roleId": "ROLE_ID_CHAMPION"
+        }
+      ]
+    },
+    "misc": {
+      "name": "Miscellaneous",
+      "rarity": "epic",
+      "weight": 0.15,
+      "roles": [
+        {
+          "id": "special_user",
+          "name": "Special User",
+          "roleId": "ROLE_ID_SPECIAL"
+        },
+        {
+          "id": "early_supporter",
+          "name": "Early Supporter",
+          "roleId": "ROLE_ID_EARLY"
+        },
+        {
+          "id": "currency_master",
+          "name": "Currency Master",
+          "roleId": "ROLE_ID_CURRENCY"
+        }
+      ]
+    }
+  }
+}
