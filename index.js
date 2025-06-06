@@ -8,7 +8,6 @@ import { fileURLToPath, pathToFileURL } from 'url';
 import { Client, GatewayIntentBits, Collection, REST, Routes, PermissionFlagsBits } from 'discord.js';
 import fetch from 'node-fetch';
 
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -20,14 +19,16 @@ const client = new Client({
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildBans,
     GatewayIntentBits.GuildModeration,
+    GatewayIntentBits.DirectMessages,
   ],
 });
+
+client.giveaways = new Map();
 
 const prefix = '&';
 client.commands = new Collection();
 client.snipes = new Map();
 
-// 💍 Marriages loading/saving
 const marriagesPath = path.join(__dirname, 'data', 'marriages.json');
 function loadMarriages() {
   try {
@@ -48,7 +49,6 @@ function saveMarriages(map) {
 }
 client.marriages = loadMarriages();
 
-// 🧠 Snipe
 client.on('messageDelete', (message) => {
   if (message.partial || !message.content) return;
   client.snipes.set(message.channel.id, {
@@ -59,7 +59,33 @@ client.on('messageDelete', (message) => {
   setTimeout(() => client.snipes.delete(message.channel.id), 60000);
 });
 
-// 🧾 Load prefix commands
+// ✅  Disboard bump detection
+import bumpReminderCommand from './commands/slash/bumpreminder.js';
+
+client.on('messageCreate', (message) => {
+  const disboardId = '302050872383242240';
+  if (
+    message.author.id === disboardId &&
+    message.embeds.length &&
+    message.embeds[0].description?.includes('Bump done')
+  ) {
+    const userMatch = message.embeds[0].description.match(/<@!?(\d+)>/);
+    if (userMatch) {
+      const userId = userMatch[1];
+      const guildId = message.guild.id;
+
+      bumpReminderCommand.bumpData[guildId] = {
+        userId,
+        time: Date.now()
+      };
+
+      bumpReminderCommand.saveBumpData();
+
+      console.log(`[BumpReminder] Registered bump from user ${userId} in guild ${guildId}`);
+    }
+  }
+});
+
 async function loadCommands(dir) {
   const folders = fs.readdirSync(dir);
   for (const folder of folders) {
@@ -80,7 +106,6 @@ async function loadCommands(dir) {
   }
 }
 
-// 🔁 Load slash commands
 const loadSlashCommands = async () => {
   const slashDir = path.join(__dirname, 'commands', 'slash');
   const slashCommands = [];
@@ -112,16 +137,16 @@ const loadSlashCommands = async () => {
   }
 };
 
-// 🟢 Bot ready
 client.once('ready', () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
   client.user.setPresence({
     activities: [{ name: 'Euphoric discord server', type: 3 }],
     status: 'online',
   });
+
+  client.giveaways.set('test123', { participants: new Set() });
 });
 
-// 🧨 Blacklist enforcement
 client.on('guildMemberAdd', async (member) => {
   const blacklistPath = path.join(__dirname, 'data', 'blacklist.json');
   if (!fs.existsSync(blacklistPath)) return;
@@ -146,7 +171,6 @@ client.on('guildMemberAdd', async (member) => {
   }
 });
 
-// 🧵 Prefix commands
 client.on('messageCreate', async (message) => {
   if (message.author.bot || !message.content.startsWith(prefix)) return;
 
@@ -175,11 +199,11 @@ client.on('messageCreate', async (message) => {
   }
 });
 
-// 🧩 Interaction handler
-client.on('interactionCreate', async interaction => {
+client.on('interactionCreate', async (interaction) => {
   if (interaction.isChatInputCommand()) {
     const command = client.commands.get(interaction.commandName);
     if (!command) return;
+
     try {
       await command.execute(interaction);
     } catch (err) {
@@ -190,6 +214,46 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: '❌ Command error.', ephemeral: true });
       }
     }
+
+  } else if (interaction.isButton()) {
+    if (!interaction.customId.startsWith('giveaway_')) return;
+
+    const giveawayId = interaction.customId.split('_')[1];
+    const giveaway = client.giveaways.get(giveawayId);
+
+    if (!giveaway) {
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: '❌ Giveaway not found or expired.',
+          ephemeral: true,
+        });
+      }
+      return;
+    }
+
+    if (!giveaway.participants) {
+      giveaway.participants = new Set();
+    }
+
+    if (giveaway.participants.has(interaction.user.id)) {
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: '❌ You have already joined this giveaway.',
+          ephemeral: true,
+        });
+      }
+      return;
+    }
+
+    giveaway.participants.add(interaction.user.id);
+
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: `🎉 You have successfully joined the giveaway **${giveawayId}**! Good luck!`,
+        ephemeral: true,
+      });
+    }
+
   } else if (interaction.isStringSelectMenu()) {
     const [action, , userId] = interaction.customId.split('_');
     const roleId = interaction.values[0];
@@ -225,88 +289,6 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
-// 💬 Message event for auto-trigger
-client.on('messageCreate', async (message) => {
-  if (message.author.bot) return;
-
-  const triggersPath = path.join(__dirname, 'data', 'triggers.json');
-  if (!fs.existsSync(triggersPath)) return;
-
-  const triggers = JSON.parse(fs.readFileSync(triggersPath, 'utf-8'));
-  const words = message.content.toLowerCase().split(/\s+/);
-
-  for (const word of words) {
-    if (triggers[word]) {
-      const { title, image } = triggers[word];
-
-      // Send the title text (if any)
-      if (title) {
-        await message.channel.send(title);
-      }
-
-      // Send the image URL alone as message content to get Discord's embed preview
-      await message.channel.send(image);
-
-      break; // only trigger once per message
-    }
-  }
-});
-
-// 🚫 Blacklisted word monitoring
-const blacklistPath = path.join(__dirname, 'data', 'blackword.json');
-const userOffenses = new Map();
-const MUTE_ROLE_NAME = 'Muted';
-
-client.on('messageCreate', async (message) => {
-  if (message.author.bot || !message.guild) return;
-
-  if (!fs.existsSync(blacklistPath)) return;
-  const blacklist = JSON.parse(fs.readFileSync(blacklistPath, 'utf-8')).words || [];
-
-  const content = message.content.toLowerCase();
-  const triggered = blacklist.some(word => content.includes(word));
-  if (!triggered) return;
-
-  try {
-    await message.delete();
-
-    await message.channel.send(`⚠️ Message from <@${message.author.id}> was deleted for using a blacklisted word.`);
-
-    const userId = message.author.id;
-    const offenses = userOffenses.get(userId) || 0;
-    userOffenses.set(userId, offenses + 1);
-
-    if (offenses + 1 >= 2) {
-      let muteRole = message.guild.roles.cache.find(role => role.name === MUTE_ROLE_NAME);
-
-      if (!muteRole) {
-        muteRole = await message.guild.roles.create({
-          name: MUTE_ROLE_NAME,
-          color: 0x555555,
-          permissions: [],
-        });
-
-        // Remove send permissions from all channels
-        for (const [_, channel] of message.guild.channels.cache) {
-          await channel.permissionOverwrites.edit(muteRole, {
-            SendMessages: false,
-            AddReactions: false,
-          });
-        }
-      }
-
-      const member = await message.guild.members.fetch(userId);
-      if (!member.roles.cache.has(muteRole.id)) {
-        await member.roles.add(muteRole);
-        await message.channel.send(`🔇 <@${userId}> has been muted for repeated use of blacklisted words.`);
-      }
-    }
-  } catch (err) {
-    console.error('❌ Error handling blacklisted message:', err);
-  }
-});
-
-// 🔁 Load commands and login
 (async () => {
   await loadCommands(path.join(__dirname, 'commands'));
   await loadSlashCommands();
